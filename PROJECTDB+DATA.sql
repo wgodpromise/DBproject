@@ -13,9 +13,11 @@ CREATE TABLE Lot (
     is_available BOOLEAN,
     userid INT NOT NULL,
     product_id INT,
+    cost NUMERIC(10, 2),
     amount_products SMALLINT,
     FOREIGN KEY (userid) REFERENCES Users (userid),
     FOREIGN KEY (product_id) REFERENCES Products (product_id)
+    
 );
 
 CREATE TABLE Products (
@@ -40,6 +42,7 @@ CREATE TABLE Orders (
     order_id SERIAL PRIMARY KEY,
     userid INT,
     lot_id INT,
+    order_date DATE,
     FOREIGN KEY (userid) REFERENCES Users (userid),
     FOREIGN KEY (lot_id) REFERENCES Lot (lot_id)
 );
@@ -72,81 +75,133 @@ ALTER Table orders ADD COLUMN rate_id INT;
 ALTER TABLE Orders
 ADD CONSTRAINT orders_rate FOREIGN KEY (rate_id) REFERENCES Rate (rate_id);
 
+-- Код для наполнения таблиц фейковыми данными 
 
--- Жанры и типы
-INSERT INTO Category (category_name) VALUES 
-('Скины CS2'), ('Игровые ключи'), ('Внутриигровая валюта'), ('Аккаунты'), ('DLC');
+INSERT INTO Category (category_name) VALUES
+('Game Keys'),
+('In-game Skins'),
+('In-game Currency'),
+('DLC & Add-ons'),
+('Game Accounts'),
+('Battle Passes'),
+('Boosting Services');
 
--- Конкретные шаблоны продуктов
-INSERT INTO Products (category_id) VALUES 
-(1), (1), (1), -- Скины
-(2), (2), (2), -- Ключи
-(3), (3), (4); -- Валюта и Аккаунты
+INSERT INTO Products (category_id)
+SELECT (random() * 6 + 1)::int
+FROM generate_series(1, 30);
 
 INSERT INTO Users (username, balance, reg_date, email)
-SELECT 
-    (ARRAY['ShadowStep', 'DragonSlayer', 'CyberPunk', 'NoobMaster', 'EliteGamer', 'SniperWolf', 'FrostByte', 'PixelLord'])[floor(random()*8)+1] || i, 
-    (random() * 5000)::numeric(10,2), 
-    CURRENT_DATE - (random() * 500 * INTERVAL '1 day'),
-    'player_' || i || '@gaming.net'
-FROM generate_series(1, 50) AS i;
+SELECT
+    'user_' || i,
+    round((random() * 1500 + 20)::numeric, 2),
+    CURRENT_DATE - (random() * 800)::int,
+    'user_' || i || '@gamemarket.com'
+FROM generate_series(1, 50) i;
 
-INSERT INTO Lot (lot_name, lot_description, is_available, userid, product_id, amount_products)
-SELECT 
-    (ARRAY[
-        'AK-47 | Огненный змей (FT)', 
-        'Elden Ring: Shadow of the Erdtree (Global Key)', 
-        'Нож-бабочка | Градиент (FN)', 
-        '10 000 V-Bucks Card', 
-        'Cyberpunk 2077 Ultimate Edition',
-        'Перчатки спецназа | Кровавая паутина',
-        'Minecraft Java + Bedrock Edition',
-        '1000 Карт Таро (Phasmophobia)',
-        'Battle Pass Season 12',
-        'Личный аккаунт Steam (100+ игр)'
-    ])[floor(random()*10)+1],
-    'Моментальная доставка после оплаты. Гарантия чистоты сделки и поддержка 24/7.',
-    (random() > 0.1), -- Большинство лотов в наличии
-    (random() * 49 + 1)::int,
-    (random() * 8 + 1)::int,
-    (random() * 5 + 1)::int
-FROM generate_series(1, 40) AS i;
-
--- Служба поддержки
 INSERT INTO Supports (support_nickname, email, reg_date)
-SELECT 
-    'GameAdmin_' || i, 
-    'support' || i || '@gamestore.io', 
-    CURRENT_DATE - (i * INTERVAL '20 days')
-FROM generate_series(1, 5) AS i;
+SELECT
+    'support_' || i,
+    'support_' || i || '@support.com',
+    CURRENT_DATE - (random() * 600)::int
+FROM generate_series(1, 10) i;
 
--- Создаем 40 заказов
-INSERT INTO Orders (userid, lot_id)
-SELECT 
+INSERT INTO Lot (
+    lot_name,
+    lot_description,
+    is_available,
+    userid,
+    product_id,
+    cost,
+    amount_products
+)
+SELECT
+    CASE p.category_id
+        WHEN 1 THEN 'Game Key: ' || (ARRAY['Elden Ring','GTA V','Cyberpunk 2077','Minecraft'])[ceil(random()*4)]
+        WHEN 2 THEN 'Skin ' || (ARRAY['AK-47','AWP','M4A1-S','Dragon Lore'])[ceil(random()*4)]
+        WHEN 3 THEN (ARRAY['V-Bucks','RP','WoW Gold','GTA$'])[ceil(random()*4)] || ' Pack'
+        WHEN 4 THEN 'DLC: ' || (ARRAY['Expansion Pack','Bonus Missions','New Characters'])[ceil(random()*3)]
+        WHEN 5 THEN 'Game Account (' || (ARRAY['CS2','WoW','Valorant'])[ceil(random()*3)] || ')'
+        WHEN 6 THEN (ARRAY['Battle Pass','Season Pass'])[ceil(random()*2)]
+        WHEN 7 THEN 'Rank Boosting Service'
+    END,
+
+    CASE p.category_id
+        WHEN 1 THEN 'Official activation key. Instant delivery.'
+        WHEN 2 THEN 'Tradable cosmetic item from trusted seller.'
+        WHEN 3 THEN 'In-game currency for purchases and upgrades.'
+        WHEN 4 THEN 'Adds new content to the base game.'
+        WHEN 5 THEN 'Verified account. Safe transfer.'
+        WHEN 6 THEN 'Unlocks seasonal rewards.'
+        WHEN 7 THEN 'Safe and professional boosting service.'
+    END,
+
+    random() > 0.15,
+
     (random() * 49 + 1)::int,
-    (random() * 39 + 1)::int
-FROM generate_series(1, 45) AS i;
+    p.product_id,
 
--- Генерируем геймерские отзывы
+    CASE p.category_id
+        WHEN 1 THEN round((random()*50 + 10)::numeric,2)
+        WHEN 2 THEN round((random()*300 + 5)::numeric,2)
+        WHEN 3 THEN round((random()*120 + 5)::numeric,2)
+        WHEN 4 THEN round((random()*70 + 10)::numeric,2)
+        WHEN 5 THEN round((random()*250 + 50)::numeric,2)
+        WHEN 6 THEN round((random()*40 + 10)::numeric,2)
+        WHEN 7 THEN round((random()*200 + 30)::numeric,2)
+    END,
+
+    (random() * 40 + 1)::int
+FROM Products p
+JOIN generate_series(1, 2) g ON true;
+
+INSERT INTO Orders (userid, lot_id, order_date)
+SELECT
+    (random() * 49 + 1)::int,
+    (random() * (SELECT max(lot_id) FROM Lot))::int + 1,
+    CURRENT_DATE - (random() * 120)::int
+FROM generate_series(1, 40);
+
 INSERT INTO Rate (order_id, review, star)
-SELECT 
-    i, 
-    (ARRAY[
-        'Всё пришло быстро, продавец топ!', 
-        'Скин с крутым флоатом, спасибо!', 
-        'Ключ активировался без проблем.', 
-        'Долго ждал ответа, но товар получил.', 
-        'Лучший магазин скинов!'
-    ])[floor(random()*5)+1], 
-    (random() * 2 + 3)::int -- Оценки в основном 3, 4 и 5
-FROM generate_series(1, 45) AS i;
+SELECT
+    order_id,
+    'Order completed successfully',
+    (random() * 4 + 1)::int
+FROM Orders;
+UPDATE Orders o
+SET rate_id = r.rate_id
+FROM Rate r
+WHERE o.order_id = r.order_id;
 
--- Связываем заказы с отзывами
-UPDATE Orders SET rate_id = order_id;
-
--- Некоторые спорные заказы отправляем в поддержку
 INSERT INTO Support_Orders (support_id, order_id)
-SELECT 
-    (random() * 4 + 1)::int, 
-    i
-FROM generate_series(1, 15) AS i;
+SELECT
+    (random() * 9 + 1)::int,
+    order_id
+FROM Orders;
+
+
+
+--1 Сотрудник техподдержки с наибольшим кол-вом обрабатываемых заказов.
+
+SELECT DISTINCT support_nickname, COUNT(so.support_id) AS orders_count FROM supports s
+JOIN support_orders so ON so.support_id = s.support_id
+JOIN orders o ON so.order_id = o.order_id
+GROUP BY s.support_nickname
+ORDER BY orders_count DESC
+LIMIT 1;
+
+--2 Топ 5 самых продаваемых товаров.
+
+SELECT DISTINCT lot_name, count(l.lot_name) AS lot_count
+FROM lot l
+JOIN orders o ON l.lot_id = o.lot_id
+GROUP BY l.lot_name
+ORDER BY lot_count DESC
+LIMIT 5;
+
+--3 
+
+SELECT sum(cost * amount_products) AS salary FROM lot l
+JOIN orders o ON l.lot_id = o.lot_id
+WHERE o.order_date BETWEEN '2025-09-01' AND '2025-12-31'
+
+
